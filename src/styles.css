@@ -162,6 +162,33 @@ header h1 {
   color: white;
 }
 
+.share-button {
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--fg);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.share-button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.share-button--copied {
+  background: #ecfdf5;
+  border-color: #10b981;
+  color: #047857;
+}
+
+.share-button--copied:hover {
+  color: #047857;
+  border-color: #10b981;
+}
+
 /* Quick-pick pills */
 .quick-picks {
   display: flex;

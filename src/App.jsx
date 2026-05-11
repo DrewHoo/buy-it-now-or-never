@@ -151,6 +151,7 @@ export default function App() {
             </button>
           ))}
         </div>
+        <ShareButton />
       </section>
 
       <div className="quick-picks">
@@ -195,6 +196,38 @@ export default function App() {
 
       <Methodology generatedAt={index.generatedAt} tickerCount={index.tickers.length} />
     </main>
+  )
+}
+
+function ShareButton() {
+  const [copied, setCopied] = useState(false)
+  function share() {
+    const url = window.location.href
+    const done = () => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    }
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(url).then(done, done)
+    } else {
+      // Old fallback: select-and-copy via a hidden textarea.
+      const ta = document.createElement('textarea')
+      ta.value = url
+      document.body.appendChild(ta)
+      ta.select()
+      try { document.execCommand('copy') } catch {}
+      document.body.removeChild(ta)
+      done()
+    }
+  }
+  return (
+    <button
+      className={copied ? 'share-button share-button--copied' : 'share-button'}
+      onClick={share}
+      title="Copy a shareable link to this exact view (ticker, time range, and zoom)"
+    >
+      {copied ? '✓ Link copied' : 'Share this chart'}
+    </button>
   )
 }
 
@@ -298,6 +331,7 @@ function Legend() {
 
 function Stats({ stats }) {
   const pctPerm = (100 * stats.pctAthsThatWerePermanent).toFixed(1)
+  const pctOff = 100 * (stats.pctOffAth || 0)
   return (
     <section className="stats">
       <div className="stat">
@@ -312,18 +346,22 @@ function Stats({ stats }) {
       </div>
       <div className="stat">
         <div className="stat-value">
+          {pctOff < 0.05 ? 'at ATH' : `${pctOff.toFixed(1)}%`}
+        </div>
+        <div className="stat-label">
+          {pctOff < 0.05
+            ? 'currently sitting at its all-time-high close'
+            : 'below the all-time-high close right now'}
+        </div>
+      </div>
+      <div className="stat">
+        <div className="stat-value">
           {stats.recoveryDaysMean != null ? `${stats.recoveryDaysMean} d` : '—'}
         </div>
         <div className="stat-label">
           mean wait when an ATH <em>did</em> come back
           {stats.recoveredAthCount ? ` (n=${stats.recoveredAthCount})` : ''}
         </div>
-      </div>
-      <div className="stat">
-        <div className="stat-value">
-          {stats.recoveryDaysP75 != null ? `${stats.recoveryDaysP75} d` : '—'}
-        </div>
-        <div className="stat-label">75th-percentile wait</div>
       </div>
     </section>
   )
@@ -416,6 +454,7 @@ function Comparison({ tickers, selected, onSelect }) {
               >
                 1y+ unbroken{sort.key === 'settledPctUnbroken' ? (sort.dir === 'desc' ? ' ↓' : ' ↑') : ''}
               </th>
+              {header('Off ATH', 'pctOffAth', 'right')}
               {header('Mean wait', 'recoveryDaysMean', 'right')}
             </tr>
           </thead>
@@ -449,6 +488,13 @@ function Comparison({ tickers, selected, onSelect }) {
                   {t.settledPctUnbroken != null
                     ? `${(100 * t.settledPctUnbroken).toFixed(1)}%`
                     : '—'}
+                </td>
+                <td className="num">
+                  {t.pctOffAth == null
+                    ? '—'
+                    : 100 * t.pctOffAth < 0.05
+                      ? <span className="muted">at ATH</span>
+                      : `${(100 * t.pctOffAth).toFixed(1)}%`}
                 </td>
                 <td className="num">
                   {t.recoveryDaysMean != null ? `${t.recoveryDaysMean} d` : '—'}

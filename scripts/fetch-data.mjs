@@ -103,6 +103,13 @@ function analyze(rows) {
   const athCount = athIndices.length
   const permAthCount = athRecoveryDays.filter(d => d == null).length
 
+  // Current drawdown from the all-time-high close. Gives the reader the
+  // context to interpret mean wait — a long mean wait means very
+  // different things at -2% off vs -75% off.
+  const athClose = closes[athIndices[athCount - 1]] // last ATH = global max close
+  const lastClose = closes[n - 1]
+  const pctOffAth = athClose ? (athClose - lastClose) / athClose : 0
+
   // Recency-corrected "still standing" metric. Filter out ATHs that
   // haven't had enough calendar time to be tested yet — both the
   // numerator (still-permanent ATHs) and denominator (all ATHs) skip
@@ -138,6 +145,9 @@ function analyze(rows) {
       settledAthCount,
       settledPermAthCount,
       settledPctUnbroken: settledAthCount ? settledPermAthCount / settledAthCount : null,
+      athClose,
+      lastClose,
+      pctOffAth,
       recoveryDaysMean: recoveryMean != null ? Math.round(recoveryMean) : null,
       recoveryDaysP75: percentile(recoveryDays, 0.75),
       recoveryDaysMax: recoveryDays.length ? recoveryDays[recoveryDays.length - 1] : null,
@@ -178,6 +188,7 @@ async function processOne(ticker) {
     settledAthCount: analyzed.stats.settledAthCount,
     settledPermAthCount: analyzed.stats.settledPermAthCount,
     settledPctUnbroken: analyzed.stats.settledPctUnbroken,
+    pctOffAth: analyzed.stats.pctOffAth,
     recoveryDaysMean: analyzed.stats.recoveryDaysMean,
   }
 }

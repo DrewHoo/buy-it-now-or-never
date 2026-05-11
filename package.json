@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "fetch": "node scripts/fetch-data.mjs",
+    "gen:og": "node scripts/gen-og.mjs",
     "build": "node scripts/fetch-data.mjs && vite build",
     "build:no-fetch": "vite build",
     "preview": "vite preview"
@@ -24,6 +25,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",
+    "sharp": "^0.34.5",
     "vite": "^5.1.0",
     "yahoo-finance2": "^3.14.0"
   }
