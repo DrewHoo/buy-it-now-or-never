@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { track } from './analytics.js'
 import Chart from './Chart.jsx'
 
 const RANGE_OPTIONS = [
@@ -76,6 +77,24 @@ export default function App() {
       .catch(err => { if (!cancelled) setError(err.message) })
     return () => { cancelled = true }
   }, [selected, baseUrl])
+
+  // Analytics: fire a structured event whenever a new ticker's data
+  // arrives. Auto-pageview from mixpanel.init covers the URL-level
+  // story; this event makes "which security" groupings trivial in
+  // Mixpanel without having to parse URLs.
+  useEffect(() => {
+    if (!data) return
+    const rangeCode =
+      RANGE_OPTIONS.find(r => r.years === range)?.code || 'all'
+    track('Chart viewed', {
+      ticker: data.symbol,
+      name: data.name,
+      category: data.category,
+      range: rangeCode,
+      zoomed: !!zoom,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data])
 
   // Mirror state into the URL so links are shareable.
   useEffect(() => {
@@ -203,6 +222,7 @@ function ShareButton() {
   const [copied, setCopied] = useState(false)
   function share() {
     const url = window.location.href
+    track('Share clicked', { url })
     const done = () => {
       setCopied(true)
       setTimeout(() => setCopied(false), 1800)
