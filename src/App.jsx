@@ -2,44 +2,115 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Chart from './Chart.jsx'
 
 const RANGE_OPTIONS = [
-  { label: '1Y', years: 1 },
-  { label: '5Y', years: 5 },
-  { label: '10Y', years: 10 },
-  { label: 'All', years: null },
+  { label: '1Y', years: 1, code: '1y' },
+  { label: '5Y', years: 5, code: '5y' },
+  { label: '10Y', years: 10, code: '10y' },
+  { label: 'All', years: null, code: 'all' },
 ]
 
 const QUICK_PICKS = [
   'SOXQ', 'SMH', 'QQQ', 'SPY', 'NVDA', 'AAPL', 'MSFT', 'GLD', 'BTC-USD',
 ]
 
+const RANGE_BY_CODE = Object.fromEntries(
+  RANGE_OPTIONS.map(r => [r.code, r.years]),
+)
+
+function readInitialState() {
+  if (typeof window === 'undefined') return { selected: null, range: null, zoom: null }
+  const params = new URLSearchParams(window.location.search)
+  const t = (params.get('t') || '').toUpperCase().trim() || null
+  const rRaw = (params.get('r') || '').toLowerCase()
+  const range = rRaw in RANGE_BY_CODE ? RANGE_BY_CODE[rRaw] : null
+  let zoom = null
+  const z = params.get('z')
+  if (z && z.includes(',')) {
+    const [a, b] = z.split(',')
+    const d1 = new Date(`${a}T00:00:00Z`)
+    const d2 = new Date(`${b}T00:00:00Z`)
+    if (!isNaN(d1) && !isNaN(d2) && d1 < d2) zoom = [d1, d2]
+  }
+  return { selected: t, range, zoom }
+}
+
 export default function App() {
   const [index, setIndex] = useState(null)
-  const [selected, setSelected] = useState(null)
+  const initial = useMemo(() => readInitialState(), [])
+  const [selected, setSelected] = useState(initial.selected)
   const [data, setData] = useState(null)
-  const [range, setRange] = useState(null)
+  const [range, setRange] = useState(initial.range)
+  const [zoom, setZoom] = useState(initial.zoom)
   const [error, setError] = useState(null)
   const baseUrl = import.meta.env.BASE_URL
 
+  // Load the ticker index once.
   useEffect(() => {
     fetch(`${baseUrl}data/index.json`)
       .then(r => r.json())
-      .then(idx => {
-        setIndex(idx)
-        const def =
-          idx.tickers.find(t => t.symbol === 'SOXQ') || idx.tickers[0]
-        setSelected(def.symbol)
-      })
+      .then(setIndex)
       .catch(err => setError(err.message))
   }, [baseUrl])
 
+  // Once the index has loaded, validate the URL ticker and fall back to a
+  // default if it isn't real. This only runs when `selected` would
+  // otherwise be invalid (missing or unknown).
+  useEffect(() => {
+    if (!index) return
+    const syms = new Set(index.tickers.map(t => t.symbol))
+    if (!selected || !syms.has(selected)) {
+      const def = syms.has('SOXQ') ? 'SOXQ' : index.tickers[0]?.symbol
+      if (def) setSelected(def)
+    }
+  }, [index, selected])
+
+  // Fetch the selected ticker. Crucially, we do NOT clear `data` here —
+  // the old chart stays on screen until the new one arrives, so the
+  // scroll position is preserved when the user clicks a row deep down
+  // the page. Stale responses are dropped via the cancellation flag.
   useEffect(() => {
     if (!selected) return
-    setData(null)
+    let cancelled = false
     fetch(`${baseUrl}data/${encodeURIComponent(selected)}.json`)
       .then(r => r.json())
-      .then(setData)
-      .catch(err => setError(err.message))
+      .then(d => { if (!cancelled) setData(d) })
+      .catch(err => { if (!cancelled) setError(err.message) })
+    return () => { cancelled = true }
   }, [selected, baseUrl])
+
+  // Mirror state into the URL so links are shareable.
+  useEffect(() => {
+    if (!selected) return
+    const params = new URLSearchParams()
+    if (selected !== 'SOXQ') params.set('t', selected)
+    const rangeCode = RANGE_OPTIONS.find(r => r.years === range)?.code
+    if (rangeCode && rangeCode !== 'all') params.set('r', rangeCode)
+    if (zoom) {
+      const iso = d => d.toISOString().slice(0, 10)
+      params.set('z', `${iso(zoom[0])},${iso(zoom[1])}`)
+    }
+    const qs = params.toString()
+    const next = qs
+      ? `${window.location.pathname}?${qs}`
+      : window.location.pathname
+    if (next !== window.location.pathname + window.location.search) {
+      window.history.replaceState(null, '', next)
+    }
+  }, [selected, range, zoom])
+
+  // User-initiated ticker change. Clears zoom because date ranges from
+  // one ticker rarely make sense for another.
+  function selectTicker(sym) {
+    if (sym === selected) return
+    setZoom(null)
+    setSelected(sym)
+  }
+
+  // User-initiated range pill click. Clears zoom because brushing inside
+  // a 1Y window then jumping to 5Y should reveal the broader view.
+  function changeRange(years) {
+    setZoom(null)
+    setRange(years)
+  }
 
   // Hook calls must precede any early returns (React rules of hooks).
   const symbolSet = useMemo(
@@ -67,14 +138,14 @@ export default function App() {
         <TickerSearch
           tickers={index.tickers}
           selected={selected}
-          onSelect={sym => symbolSet.has(sym) && setSelected(sym)}
+          onSelect={sym => symbolSet.has(sym) && selectTicker(sym)}
         />
         <div className="range-switcher">
           {RANGE_OPTIONS.map(r => (
             <button
               key={r.label}
               className={range === r.years ? 'range range--active' : 'range'}
-              onClick={() => setRange(r.years)}
+              onClick={() => changeRange(r.years)}
             >
               {r.label}
             </button>
@@ -88,7 +159,7 @@ export default function App() {
           <button
             key={s}
             className={selected === s ? 'pill pill--active' : 'pill'}
-            onClick={() => setSelected(s)}
+            onClick={() => selectTicker(s)}
           >
             {s}
           </button>
@@ -105,7 +176,12 @@ export default function App() {
         </div>
       </section>
 
-      <Chart data={data} rangeYears={range} />
+      <Chart
+        data={data}
+        rangeYears={range}
+        zoom={zoom}
+        onZoomChange={setZoom}
+      />
 
       <Legend />
 
@@ -114,7 +190,7 @@ export default function App() {
       <Comparison
         tickers={index.tickers}
         selected={selected}
-        onSelect={setSelected}
+        onSelect={selectTicker}
       />
 
       <Methodology generatedAt={index.generatedAt} tickerCount={index.tickers.length} />

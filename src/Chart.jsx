@@ -80,7 +80,7 @@ function formatTickValue(v) {
   return numberFormat('$.4f')(v)
 }
 
-export default function Chart({ data, rangeYears }) {
+export default function Chart({ data, rangeYears, zoom, onZoomChange }) {
   const containerRef = useRef(null)
   const [width, setWidth] = useState(900)
   const height = 460
@@ -107,13 +107,10 @@ export default function Chart({ data, rangeYears }) {
     return m
   }, [athIndices, athRecoveryDays])
 
-  // Zoom state is a [startDate, endDate] tuple set by click-and-drag on
-  // the chart. It's a sub-range *within* whatever the rangeYears pill
-  // selected, so clicking a different range pill clears the zoom.
-  const [zoom, setZoom] = useState(null)
-  useEffect(() => { setZoom(null) }, [rangeYears, data.symbol])
-
-  // Brush state — { startX, endX } while the user is mid-drag.
+  // Zoom is now controlled by the parent (App holds it so the URL effect
+  // can see it). Brush state is the mid-drag selection rectangle and
+  // stays local — once the user releases, we hand the new range up via
+  // onZoomChange.
   const [brush, setBrush] = useState(null)
 
   const view = useMemo(() => {
@@ -255,7 +252,7 @@ export default function Chart({ data, rangeYears }) {
     if (drag > 8) {
       const lo = Math.min(brush.startX, brush.endX)
       const hi = Math.max(brush.startX, brush.endX)
-      setZoom([xScale.invert(lo), xScale.invert(hi)])
+      onZoomChange([xScale.invert(lo), xScale.invert(hi)])
     }
     setBrush(null)
   }
@@ -387,7 +384,7 @@ export default function Chart({ data, rangeYears }) {
         />
       </svg>
       {zoom && (
-        <button className="chart-reset" onClick={() => setZoom(null)}>
+        <button className="chart-reset" onClick={() => onZoomChange(null)}>
           Reset zoom
         </button>
       )}
