@@ -12,16 +12,30 @@ const MARGIN = { top: 18, right: 18, bottom: 32, left: 56 }
 
 const dateBisector = bisector(d => d).left
 
-// Yellow (#fbbf24) → red (#dc2626) over 0–365 calendar days since the ATH.
-// A permanent ATH from yesterday is yellow (low confidence — hasn't had time
-// to be undercut); a permanent ATH from a year+ ago is full red (this one
-// stuck). Saturates at 365 so older ATHs all look equally "definitive".
-function permColor(daysSinceAth) {
-  const t = Math.min(Math.max(daysSinceAth, 0), 365) / 365
-  const r = Math.round(251 + (220 - 251) * t)
-  const g = Math.round(191 + (38 - 191) * t)
-  const b = Math.round(36 + (38 - 36) * t)
-  return `rgb(${r}, ${g}, ${b})`
+// Recovered ATHs get a green → yellow → orange gradient by how long the
+// buyer had to wait. Permanent ATHs ("and counting") are solid red — a
+// distinct visual category, not the saturating end of the same scale.
+//
+// We scale by log1p(wait) so that the meaningful range of wait times
+// (a day to a few years) spreads cleanly across the gradient: a 1-week
+// wait is barely tinted, a 1-month wait is yellow-green, a 1-year wait
+// reads as orange, multi-year waits saturate.
+const PERMANENT_COLOR = 'rgb(220, 38, 38)' // red-600
+function lerp(a, b, t) { return Math.round(a + (b - a) * t) }
+function rgb(c) { return `rgb(${c[0]}, ${c[1]}, ${c[2]})` }
+const GREEN  = [34, 197, 94]   // green-500
+const YELLOW = [234, 179, 8]   // yellow-500
+const ORANGE = [249, 115, 22]  // orange-500
+function athColor(waitTradingDays) {
+  if (waitTradingDays == null) return PERMANENT_COLOR
+  // Normalize log1p(wait) onto [0, 1] over [0, ~1000 trading days (~4 years)].
+  const t = Math.min(1, Math.log1p(waitTradingDays) / Math.log1p(1000))
+  if (t < 0.5) {
+    const u = t * 2
+    return rgb([lerp(GREEN[0], YELLOW[0], u), lerp(GREEN[1], YELLOW[1], u), lerp(GREEN[2], YELLOW[2], u)])
+  }
+  const u = (t - 0.5) * 2
+  return rgb([lerp(YELLOW[0], ORANGE[0], u), lerp(YELLOW[1], ORANGE[1], u), lerp(YELLOW[2], ORANGE[2], u)])
 }
 
 // "Nice" log-scale ticks: pick powers of 10 inside [lo, hi], and if the
@@ -118,7 +132,9 @@ export default function Chart({ data, rangeYears }) {
     return gen(pts)
   }, [parsedDates, closes, startIdx, endIdx, xScale, yScale])
 
-  // Split the ATH points by recovery status for layered rendering.
+  // Every ATH gets a colored marker. Recovered ATHs are colored by wait
+  // length; permanent ATHs are solid red. We split into two arrays so
+  // the permanent ones can render on top with a larger radius.
   const { athPoints, permPoints } = useMemo(() => {
     const ath = []
     const perm = []
@@ -130,21 +146,14 @@ export default function Chart({ data, rangeYears }) {
         i,
         x: xScale(parsedDates[i]),
         y: yScale(closes[i]),
+        color: athColor(wait),
+        wait,
       }
-      if (wait == null) {
-        const daysSince = Math.max(
-          0,
-          Math.floor((lastDate - parsedDates[i]) / 86400000),
-        )
-        point.color = permColor(daysSince)
-        point.daysSince = daysSince
-        perm.push(point)
-      } else {
-        ath.push(point)
-      }
+      if (wait == null) perm.push(point)
+      else ath.push(point)
     }
     return { athPoints: ath, permPoints: perm }
-  }, [athIndices, athRecoveryDays, startIdx, endIdx, xScale, yScale, parsedDates, closes, lastDate])
+  }, [athIndices, athRecoveryDays, startIdx, endIdx, xScale, yScale, parsedDates, closes])
 
   const xTicks = useMemo(() => {
     const ticks = xScale.ticks(width < 600 ? 4 : 6)
@@ -248,17 +257,16 @@ export default function Chart({ data, rangeYears }) {
           strokeWidth={1.5}
         />
 
-        {/* ATH markers that DID recover — subtle gray */}
+        {/* Recovered ATHs — green → yellow → orange by wait length */}
         {athPoints.map(p => (
           <circle
             key={`ath-${p.i}`}
-            cx={p.x} cy={p.y} r={2.5}
-            fill="#9aa3b2" stroke="white" strokeWidth={0.5}
-            opacity={0.7}
+            cx={p.x} cy={p.y} r={3}
+            fill={p.color} stroke="white" strokeWidth={0.75}
           />
         ))}
 
-        {/* Permanent ATHs — color encodes confidence (age in days) */}
+        {/* Permanent ATHs — solid red, drawn on top with a thicker ring */}
         {permPoints.map(p => (
           <circle
             key={`pf-${p.i}`}

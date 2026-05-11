@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Chart from './Chart.jsx'
 
 const RANGE_OPTIONS = [
@@ -8,13 +8,16 @@ const RANGE_OPTIONS = [
   { label: 'All', years: null },
 ]
 
+const QUICK_PICKS = [
+  'SOXQ', 'SMH', 'QQQ', 'SPY', 'NVDA', 'AAPL', 'MSFT', 'GLD', 'BTC-USD',
+]
+
 export default function App() {
   const [index, setIndex] = useState(null)
   const [selected, setSelected] = useState(null)
   const [data, setData] = useState(null)
-  const [range, setRange] = useState(null) // null = All
+  const [range, setRange] = useState(null)
   const [error, setError] = useState(null)
-
   const baseUrl = import.meta.env.BASE_URL
 
   useEffect(() => {
@@ -22,8 +25,8 @@ export default function App() {
       .then(r => r.json())
       .then(idx => {
         setIndex(idx)
-        // Default to SOXQ since the question was prompted by it
-        const def = idx.tickers.find(t => t.symbol === 'SOXQ') || idx.tickers[0]
+        const def =
+          idx.tickers.find(t => t.symbol === 'SOXQ') || idx.tickers[0]
         setSelected(def.symbol)
       })
       .catch(err => setError(err.message))
@@ -32,18 +35,19 @@ export default function App() {
   useEffect(() => {
     if (!selected) return
     setData(null)
-    fetch(`${baseUrl}data/${selected}.json`)
+    fetch(`${baseUrl}data/${encodeURIComponent(selected)}.json`)
       .then(r => r.json())
       .then(setData)
       .catch(err => setError(err.message))
   }, [selected, baseUrl])
 
-  if (error) {
-    return <main className="error">Couldn't load data: {error}</main>
-  }
-  if (!index || !data) {
-    return <main className="loading">Loading…</main>
-  }
+  if (error) return <main className="error">Couldn't load data: {error}</main>
+  if (!index || !data) return <main className="loading">Loading…</main>
+
+  const symbolSet = useMemo(
+    () => new Set(index.tickers.map(t => t.symbol)),
+    [index.tickers],
+  )
 
   return (
     <main>
@@ -59,19 +63,11 @@ export default function App() {
       </header>
 
       <section className="controls">
-        <div className="ticker-switcher" role="tablist">
-          {index.tickers.map(t => (
-            <button
-              key={t.symbol}
-              role="tab"
-              aria-selected={selected === t.symbol}
-              className={selected === t.symbol ? 'pill pill--active' : 'pill'}
-              onClick={() => setSelected(t.symbol)}
-            >
-              {t.symbol}
-            </button>
-          ))}
-        </div>
+        <TickerSearch
+          tickers={index.tickers}
+          selected={selected}
+          onSelect={sym => symbolSet.has(sym) && setSelected(sym)}
+        />
         <div className="range-switcher">
           {RANGE_OPTIONS.map(r => (
             <button
@@ -85,6 +81,19 @@ export default function App() {
         </div>
       </section>
 
+      <div className="quick-picks">
+        <span className="quick-picks-label">Quick picks:</span>
+        {QUICK_PICKS.filter(s => symbolSet.has(s)).map(s => (
+          <button
+            key={s}
+            className={selected === s ? 'pill pill--active' : 'pill'}
+            onClick={() => setSelected(s)}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+
       <section className="ticker-header">
         <h2>
           <span className="ticker-symbol">{data.symbol}</span>
@@ -97,38 +106,121 @@ export default function App() {
 
       <Chart data={data} rangeYears={range} />
 
-      <section className="legend">
-        <span className="legend-item">
-          <span className="legend-line" /> Adjusted close
-        </span>
-        <span className="legend-item">
-          <span className="legend-dot legend-dot--ath" /> ATH that{' '}
-          <em>did</em> come back
-        </span>
-        <span className="legend-item legend-item--gradient">
-          <span className="legend-gradient" />
-          <span className="legend-gradient-labels">
-            <span>just happened</span>
-            <span>1+ year unbroken</span>
-          </span>
-          <span className="legend-gradient-caption">
-            ATH never seen again
-          </span>
-        </span>
-      </section>
+      <Legend />
 
-      <Stats stats={data.stats} symbol={data.symbol} />
+      <Stats stats={data.stats} />
 
-      <Comparison tickers={index.tickers} selected={selected} onSelect={setSelected} />
+      <Comparison
+        tickers={index.tickers}
+        selected={selected}
+        onSelect={setSelected}
+      />
 
-      <Methodology generatedAt={index.generatedAt} />
+      <Methodology generatedAt={index.generatedAt} tickerCount={index.tickers.length} />
     </main>
   )
 }
 
-function Stats({ stats, symbol }) {
+function TickerSearch({ tickers, selected, onSelect }) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const inputRef = useRef(null)
+  const wrapRef = useRef(null)
+
+  useEffect(() => {
+    function onDown(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+    }
+    window.addEventListener('mousedown', onDown)
+    return () => window.removeEventListener('mousedown', onDown)
+  }, [])
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toUpperCase()
+    if (!q) return tickers.slice(0, 50)
+    return tickers
+      .filter(t =>
+        t.symbol.includes(q) ||
+        (t.name || '').toUpperCase().includes(q),
+      )
+      .slice(0, 50)
+  }, [query, tickers])
+
+  function commit(sym) {
+    onSelect(sym)
+    setQuery('')
+    setOpen(false)
+    inputRef.current?.blur()
+  }
+
+  return (
+    <div className="ticker-search" ref={wrapRef}>
+      <input
+        ref={inputRef}
+        type="text"
+        value={query}
+        placeholder={`Search ${tickers.length.toLocaleString()} tickers — symbol or name`}
+        onFocus={() => setOpen(true)}
+        onChange={e => { setQuery(e.target.value); setOpen(true) }}
+        onKeyDown={e => {
+          if (e.key === 'Enter' && filtered[0]) commit(filtered[0].symbol)
+          else if (e.key === 'Escape') { setOpen(false); setQuery('') }
+        }}
+      />
+      {open && (
+        <ul className="ticker-search-results" role="listbox">
+          {filtered.map(t => (
+            <li
+              key={t.symbol}
+              role="option"
+              aria-selected={t.symbol === selected}
+              className={t.symbol === selected ? 'is-selected' : ''}
+              onMouseDown={() => commit(t.symbol)}
+            >
+              <span className="result-symbol">{t.symbol}</span>
+              <span className="result-name">{t.name}</span>
+              <span className="result-pct">
+                {(100 * t.pctAthsThatWerePermanent).toFixed(1)}%
+              </span>
+            </li>
+          ))}
+          {filtered.length === 0 && (
+            <li className="no-results">No tickers match "{query}"</li>
+          )}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function Legend() {
+  return (
+    <section className="legend">
+      <span className="legend-item">
+        <span className="legend-line" /> Adjusted close
+      </span>
+      <span className="legend-item legend-item--gradient">
+        <span className="legend-gradient legend-gradient--recovery" />
+        <span className="legend-gradient-labels">
+          <span>recovered in days</span>
+          <span>1 year+</span>
+        </span>
+        <span className="legend-gradient-caption">
+          ATH — how long you waited to buy back in
+        </span>
+      </span>
+      <span className="legend-item">
+        <span className="legend-dot legend-dot--perm" />
+        <span>
+          ATH <strong>never seen again</strong>
+        </span>
+      </span>
+    </section>
+  )
+}
+
+function Stats({ stats }) {
   const pctPerm = (100 * stats.pctAthsThatWerePermanent).toFixed(1)
-  const recovered = stats.recoveredAthCount
   return (
     <section className="stats">
       <div className="stat">
@@ -138,18 +230,16 @@ function Stats({ stats, symbol }) {
       <div className="stat stat--accent">
         <div className="stat-value">{stats.permAthCount.toLocaleString()}</div>
         <div className="stat-label">
-          never seen again afterward ({pctPerm}% of ATHs)
+          never seen again ({pctPerm}% of ATHs)
         </div>
       </div>
       <div className="stat">
         <div className="stat-value">
-          {stats.recoveryDaysMedian != null
-            ? `${stats.recoveryDaysMedian} d`
-            : '—'}
+          {stats.recoveryDaysMedian != null ? `${stats.recoveryDaysMedian} d` : '—'}
         </div>
         <div className="stat-label">
           median wait when an ATH <em>did</em> come back
-          {recovered ? ` (n=${recovered})` : ''}
+          {stats.recoveredAthCount ? ` (n=${stats.recoveredAthCount})` : ''}
         </div>
       </div>
       <div className="stat">
@@ -163,78 +253,145 @@ function Stats({ stats, symbol }) {
 }
 
 function Comparison({ tickers, selected, onSelect }) {
-  const rows = [...tickers].sort(
-    (a, b) => b.pctAthsThatWerePermanent - a.pctAthsThatWerePermanent,
-  )
-  const maxPct = rows[0]?.pctAthsThatWerePermanent || 1
+  const [sort, setSort] = useState({ key: 'pctAthsThatWerePermanent', dir: 'desc' })
+  const [filter, setFilter] = useState('all')
+
+  const filtered = useMemo(() => {
+    if (filter === 'all') return tickers
+    return tickers.filter(t => t.category === filter)
+  }, [tickers, filter])
+
+  const sorted = useMemo(() => {
+    const arr = [...filtered]
+    const { key, dir } = sort
+    const m = dir === 'desc' ? -1 : 1
+    arr.sort((a, b) => {
+      const av = a[key]; const bv = b[key]
+      if (av == null && bv == null) return 0
+      if (av == null) return 1
+      if (bv == null) return -1
+      if (typeof av === 'string') return av.localeCompare(bv) * m
+      return (av - bv) * m
+    })
+    return arr
+  }, [filtered, sort])
+
+  function header(label, key, align = 'left') {
+    const active = sort.key === key
+    const arrow = active ? (sort.dir === 'desc' ? ' ↓' : ' ↑') : ''
+    return (
+      <th
+        className={`th-sortable th-${align}${active ? ' is-active' : ''}`}
+        onClick={() =>
+          setSort(s =>
+            s.key === key
+              ? { key, dir: s.dir === 'desc' ? 'asc' : 'desc' }
+              : { key, dir: 'desc' },
+          )
+        }
+      >
+        {label}{arrow}
+      </th>
+    )
+  }
+
   return (
     <section className="comparison">
-      <h3>Across all tickers — share of ATHs that turned out to be permanent</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Ticker</th>
-            <th>History</th>
-            <th>ATH closes</th>
-            <th>Never seen again</th>
-            <th>% permanent</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(t => (
-            <tr
-              key={t.symbol}
-              className={t.symbol === selected ? 'row row--selected' : 'row'}
-              onClick={() => onSelect(t.symbol)}
+      <div className="comparison-header">
+        <h3>All {tickers.length} tickers — sorted by share of ATHs never undercut</h3>
+        <div className="category-filter">
+          {[
+            { value: 'all',       label: 'All' },
+            { value: 'stock',     label: 'Stocks' },
+            { value: 'etf',       label: 'ETFs' },
+            { value: 'commodity', label: 'Commodities' },
+            { value: 'crypto',    label: 'Crypto' },
+          ].map(c => (
+            <button
+              key={c.value}
+              className={filter === c.value ? 'cat cat--active' : 'cat'}
+              onClick={() => setFilter(c.value)}
             >
-              <td><strong>{t.symbol}</strong></td>
-              <td className="muted">
-                {t.firstDate.slice(0, 4)}–{t.lastDate.slice(0, 4)}
-              </td>
-              <td>{t.athCount.toLocaleString()}</td>
-              <td>{t.permAthCount.toLocaleString()}</td>
-              <td>
-                <div className="bar-cell">
-                  <div
-                    className="bar"
-                    style={{
-                      width: `${(100 * t.pctAthsThatWerePermanent) / maxPct}%`,
-                    }}
-                  />
-                  <span className="bar-label">
-                    {(100 * t.pctAthsThatWerePermanent).toFixed(1)}%
-                  </span>
-                </div>
-              </td>
-            </tr>
+              {c.label}
+            </button>
           ))}
-        </tbody>
-      </table>
+        </div>
+      </div>
+      <div className="comparison-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              {header('Ticker', 'symbol')}
+              {header('Name', 'name')}
+              {header('History', 'firstDate')}
+              {header('ATH closes', 'athCount', 'right')}
+              {header('Never seen again', 'permAthCount', 'right')}
+              {header('% permanent', 'pctAthsThatWerePermanent', 'right')}
+              {header('Median wait', 'recoveryDaysMedian', 'right')}
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map(t => (
+              <tr
+                key={t.symbol}
+                className={t.symbol === selected ? 'row row--selected' : 'row'}
+                onClick={() => onSelect(t.symbol)}
+              >
+                <td><strong>{t.symbol}</strong></td>
+                <td className="muted name-cell">{t.name}</td>
+                <td className="muted">
+                  {t.firstDate.slice(0, 4)}–{t.lastDate.slice(0, 4)}
+                </td>
+                <td className="num">{t.athCount.toLocaleString()}</td>
+                <td className="num">{t.permAthCount.toLocaleString()}</td>
+                <td className="num">
+                  <div className="bar-cell">
+                    <div
+                      className="bar"
+                      style={{
+                        width: `${Math.min(100, 100 * t.pctAthsThatWerePermanent / 0.3)}%`,
+                      }}
+                    />
+                    <span className="bar-label">
+                      {(100 * t.pctAthsThatWerePermanent).toFixed(1)}%
+                    </span>
+                  </div>
+                </td>
+                <td className="num">
+                  {t.recoveryDaysMedian != null ? `${t.recoveryDaysMedian} d` : '—'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   )
 }
 
-function Methodology({ generatedAt }) {
+function Methodology({ generatedAt, tickerCount }) {
   return (
     <section className="methodology">
       <h3>Notes</h3>
       <ul>
         <li>
-          Daily prices are <strong>split- and dividend-adjusted closes</strong>{' '}
-          from Yahoo Finance. Adjusted close treats dividends as reinvested, so
-          historical numbers can be lower than the raw quote that traded on that
-          day.
+          {tickerCount} tickers: Nasdaq 100 + S&P 100 (deduped union) plus
+          major tech / growth / sector / semi ETFs, gold and silver, and a
+          few flavors of bitcoin. Daily prices are{' '}
+          <strong>split- and dividend-adjusted closes</strong> from Yahoo
+          Finance. Adjusted close treats dividends as reinvested.
         </li>
         <li>
           A close is a <strong>permanent floor</strong> for this dataset if no
           later close was equal to or below it. By definition the most recent
-          close is always trivially permanent — interpret with care for the last
-          few months.
+          close is always trivially permanent — interpret the most recent red
+          dot accordingly.
         </li>
         <li>
-          A <strong>permanent ATH</strong> is the intersection: a new
-          closing-price all-time high that also was never undercut by any later
-          close. These are the "if you didn't buy, you missed it forever" days.
+          Recovered ATHs are colored by how many trading days passed before
+          the price was matched or undercut: <em>green</em> for short waits,
+          <em> orange</em> for waits approaching a year, <em>red</em> only
+          for ATHs that haven't been undercut at all (yet).
         </li>
         <li>
           We only check <em>closes</em>, not intraday lows. A stock can dip
