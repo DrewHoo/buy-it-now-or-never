@@ -1,0 +1,378 @@
+:root {
+  --fg: #1a1a1a;
+  --fg-muted: #555;
+  --bg: #fafafa;
+  --bg-card: #ffffff;
+  --border: #e6e6e6;
+  --line: #1f4e8c;
+  --ath: #9aa3b2;
+  --perm: #dc2626;
+  --accent: #1f4e8c;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui,
+    sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+#root {
+  display: block;
+}
+
+main {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+}
+
+header h1 {
+  font-size: 36px;
+  letter-spacing: -0.02em;
+  margin: 0 0 12px;
+}
+
+.lede {
+  font-size: 16px;
+  color: var(--fg-muted);
+  max-width: 720px;
+  margin: 0 0 32px;
+}
+
+.lede em {
+  font-style: italic;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.ticker-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pill {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--fg-muted);
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.pill:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.pill--active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.range-switcher {
+  display: flex;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-card);
+}
+
+.range {
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 12px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--fg-muted);
+}
+
+.range--active {
+  background: var(--accent);
+  color: white;
+}
+
+.ticker-header {
+  margin-top: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ticker-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.ticker-symbol {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 22px;
+  margin-right: 10px;
+  color: var(--accent);
+}
+
+.ticker-name {
+  color: var(--fg-muted);
+  font-weight: 400;
+  font-size: 15px;
+}
+
+.adjustment-note {
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+.chart {
+  position: relative;
+  margin-top: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.chart svg {
+  display: block;
+}
+
+.hover-card {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(20, 20, 20, 0.94);
+  color: white;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  min-width: 160px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+}
+
+.hover-date {
+  opacity: 0.7;
+  font-size: 11px;
+}
+
+.hover-price {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 2px 0 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.hover-tag {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.hover-tag--perm {
+  background: var(--perm);
+  color: white;
+  font-weight: 600;
+}
+
+.hover-tag--ath {
+  background: #44485560;
+  color: white;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin: 14px 4px 0;
+  font-size: 13px;
+  color: var(--fg-muted);
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-line {
+  display: inline-block;
+  width: 24px;
+  height: 2px;
+  background: var(--line);
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid white;
+}
+
+.legend-dot--ath {
+  background: var(--ath);
+}
+
+.legend-dot--perm {
+  background: var(--perm);
+  width: 12px;
+  height: 12px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.stat {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.stat--accent {
+  border-color: var(--perm);
+  background: #fff5f5;
+}
+
+.stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: -0.01em;
+}
+
+.stat--accent .stat-value {
+  color: var(--perm);
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--fg-muted);
+  margin-top: 4px;
+}
+
+.comparison {
+  margin-top: 40px;
+}
+
+.comparison h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+
+.comparison table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.comparison th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--fg-muted);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.comparison td {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.comparison tr.row {
+  cursor: pointer;
+}
+
+.comparison tr.row:hover {
+  background: #f3f6fa;
+}
+
+.comparison tr.row--selected {
+  background: #eef3fb;
+}
+
+.comparison .muted {
+  color: var(--fg-muted);
+}
+
+.bar-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 180px;
+}
+
+.bar {
+  height: 8px;
+  background: var(--perm);
+  border-radius: 2px;
+  opacity: 0.7;
+}
+
+.bar-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--fg);
+}
+
+.methodology {
+  margin-top: 48px;
+  font-size: 13px;
+  color: var(--fg-muted);
+  max-width: 720px;
+}
+
+.methodology h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 8px;
+}
+
+.methodology ul {
+  padding-left: 18px;
+}
+
+.methodology li {
+  margin-bottom: 6px;
+}
+
+.loading, .error {
+  padding: 80px 24px;
+  text-align: center;
+  color: var(--fg-muted);
+}
+
+@media (max-width: 600px) {
+  main { padding: 24px 16px 60px; }
+  header h1 { font-size: 28px; }
+  .stat-value { font-size: 20px; }
+}

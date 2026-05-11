@@ -1,0 +1,30 @@
+{
+  "name": "buy-it-now-or-never",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "fetch": "node scripts/fetch-data.mjs",
+    "build": "node scripts/fetch-data.mjs && vite build",
+    "build:no-fetch": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "d3-array": "^3.2.4",
+    "d3-axis": "^3.0.0",
+    "d3-format": "^3.1.0",
+    "d3-scale": "^4.0.2",
+    "d3-selection": "^3.0.0",
+    "d3-shape": "^3.2.0",
+    "d3-time": "^3.1.0",
+    "d3-time-format": "^4.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "vite": "^5.1.0",
+    "yahoo-finance2": "^3.14.0"
+  }
+}
