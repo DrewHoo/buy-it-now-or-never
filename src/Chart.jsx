@@ -104,17 +104,20 @@ export default function Chart({ data, rangeYears, zoom, onZoomChange }) {
     return () => ro.disconnect()
   }, [])
 
-  const { dates, closes, athIndices, athRecoveryDays } = data
+  const { dates, closes, athIndices, athRecoveryDays, athBuyableDays } = data
 
-  // Map from index → recoveryDays (null = permanent, undefined = not an ATH).
-  // Used for O(1) hover lookups + classification.
+  // Map from index → { wait, buyable } for O(1) hover lookups.
+  // wait == null means permanent; absence from the map means not an ATH.
   const athInfo = useMemo(() => {
     const m = new Map()
     for (let k = 0; k < athIndices.length; k++) {
-      m.set(athIndices[k], athRecoveryDays[k])
+      m.set(athIndices[k], {
+        wait: athRecoveryDays[k],
+        buyable: athBuyableDays ? athBuyableDays[k] : null,
+      })
     }
     return m
-  }, [athIndices, athRecoveryDays])
+  }, [athIndices, athRecoveryDays, athBuyableDays])
 
   // Zoom is now controlled by the parent (App holds it so the URL effect
   // can see it). Brush state is the mid-drag selection rectangle and
@@ -304,8 +307,10 @@ export default function Chart({ data, rangeYears, zoom, onZoomChange }) {
 
   let hoverInfo = null
   if (hover) {
-    const wait = athInfo.get(hover.i)
+    const ath = athInfo.get(hover.i)
     const isAth = athInfo.has(hover.i)
+    const wait = ath ? ath.wait : undefined
+    const buyable = ath ? ath.buyable : null
     let daysSince = null
     let color = null
     if (isAth) {
@@ -318,7 +323,7 @@ export default function Chart({ data, rangeYears, zoom, onZoomChange }) {
         color = athColor(wait)
       }
     }
-    hoverInfo = { isAth, wait, daysSince, color }
+    hoverInfo = { isAth, wait, daysSince, color, buyable }
   }
 
   return (
@@ -476,6 +481,11 @@ function HoverCard({ date, close, info, left, top }) {
           <div className="hover-sub">
             {info.wait} day{info.wait === 1 ? '' : 's'} until seen again
           </div>
+          {info.buyable != null && (
+            <div className="hover-sub">
+              {info.buyable} day{info.buyable === 1 ? '' : 's'} at or below afterward
+            </div>
+          )}
         </div>
       )}
     </div>

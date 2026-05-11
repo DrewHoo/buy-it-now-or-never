@@ -71,20 +71,34 @@ function analyze(rows) {
     if (closes[i] < suffixMin) suffixMin = closes[i]
   }
 
+  // For every ATH compute two things in one pass:
+  //   athRecoveryDays — trading days until the first future close at or
+  //     below the ATH (null = permanent, never undercut).
+  //   athBuyableDays  — total future trading days the close stayed at or
+  //     below the ATH ("how many chances did you have to buy at this
+  //     price or lower"). 0 for permanent ATHs by definition.
   const athIndices = []
   const athRecoveryDays = []
+  const athBuyableDays = []
   for (let i = 0; i < n; i++) {
     if (!isAth[i]) continue
     athIndices.push(i)
     if (isPermanentFloor[i]) {
       athRecoveryDays.push(null)
-    } else {
-      let waited = null
-      for (let j = i + 1; j < n; j++) {
-        if (closes[j] <= closes[i]) { waited = j - i; break }
-      }
-      athRecoveryDays.push(waited)
+      athBuyableDays.push(0)
+      continue
     }
+    let waited = null
+    let buyable = 0
+    const cap = closes[i]
+    for (let j = i + 1; j < n; j++) {
+      if (closes[j] <= cap) {
+        if (waited == null) waited = j - i
+        buyable++
+      }
+    }
+    athRecoveryDays.push(waited)
+    athBuyableDays.push(buyable)
   }
   const recoveryDays = athRecoveryDays
     .filter(d => d != null)
@@ -134,6 +148,7 @@ function analyze(rows) {
     closes,
     athIndices,
     athRecoveryDays,
+    athBuyableDays,
     stats: {
       firstDate: dates[0],
       lastDate: dates[n - 1],
