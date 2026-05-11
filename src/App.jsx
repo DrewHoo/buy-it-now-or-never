@@ -181,7 +181,7 @@ function TickerSearch({ tickers, selected, onSelect }) {
               <span className="result-symbol">{t.symbol}</span>
               <span className="result-name">{t.name}</span>
               <span className="result-pct">
-                {(100 * t.pctAthsThatWerePermanent).toFixed(1)}%
+                {t.permAthCount} stuck
               </span>
             </li>
           ))}
@@ -236,10 +236,10 @@ function Stats({ stats }) {
       </div>
       <div className="stat">
         <div className="stat-value">
-          {stats.recoveryDaysMedian != null ? `${stats.recoveryDaysMedian} d` : '—'}
+          {stats.recoveryDaysMean != null ? `${stats.recoveryDaysMean} d` : '—'}
         </div>
         <div className="stat-label">
-          median wait when an ATH <em>did</em> come back
+          mean wait when an ATH <em>did</em> come back
           {stats.recoveredAthCount ? ` (n=${stats.recoveredAthCount})` : ''}
         </div>
       </div>
@@ -254,7 +254,7 @@ function Stats({ stats }) {
 }
 
 function Comparison({ tickers, selected, onSelect }) {
-  const [sort, setSort] = useState({ key: 'pctAthsThatWerePermanent', dir: 'desc' })
+  const [sort, setSort] = useState({ key: 'permAthCount', dir: 'desc' })
   const [filter, setFilter] = useState('all')
 
   const filtered = useMemo(() => {
@@ -299,7 +299,7 @@ function Comparison({ tickers, selected, onSelect }) {
   return (
     <section className="comparison">
       <div className="comparison-header">
-        <h3>All {tickers.length} tickers — sorted by share of ATHs never undercut</h3>
+        <h3>All {tickers.length} tickers — click a row to chart it</h3>
         <div className="category-filter">
           {[
             { value: 'all',       label: 'All' },
@@ -327,8 +327,20 @@ function Comparison({ tickers, selected, onSelect }) {
               {header('History', 'firstDate')}
               {header('ATH closes', 'athCount', 'right')}
               {header('Never seen again', 'permAthCount', 'right')}
-              {header('% permanent', 'pctAthsThatWerePermanent', 'right')}
-              {header('Median wait', 'recoveryDaysMedian', 'right')}
+              <th
+                className={`th-sortable th-right${sort.key === 'settledPctUnbroken' ? ' is-active' : ''}`}
+                title="Share of ATHs at least 1 year old that have never been undercut. Recent ATHs are excluded from both numerator and denominator so a young ticker like SOXQ doesn't trivially top the list."
+                onClick={() =>
+                  setSort(s =>
+                    s.key === 'settledPctUnbroken'
+                      ? { key: 'settledPctUnbroken', dir: s.dir === 'desc' ? 'asc' : 'desc' }
+                      : { key: 'settledPctUnbroken', dir: 'desc' },
+                  )
+                }
+              >
+                1y+ unbroken{sort.key === 'settledPctUnbroken' ? (sort.dir === 'desc' ? ' ↓' : ' ↑') : ''}
+              </th>
+              {header('Mean wait', 'recoveryDaysMean', 'right')}
             </tr>
           </thead>
           <tbody>
@@ -344,22 +356,26 @@ function Comparison({ tickers, selected, onSelect }) {
                   {t.firstDate.slice(0, 4)}–{t.lastDate.slice(0, 4)}
                 </td>
                 <td className="num">{t.athCount.toLocaleString()}</td>
-                <td className="num">{t.permAthCount.toLocaleString()}</td>
                 <td className="num">
                   <div className="bar-cell">
                     <div
                       className="bar"
                       style={{
-                        width: `${Math.min(100, 100 * t.pctAthsThatWerePermanent / 0.3)}%`,
+                        width: `${Math.min(100, 100 * t.permAthCount / 50)}%`,
                       }}
                     />
                     <span className="bar-label">
-                      {(100 * t.pctAthsThatWerePermanent).toFixed(1)}%
+                      {t.permAthCount.toLocaleString()}
                     </span>
                   </div>
                 </td>
                 <td className="num">
-                  {t.recoveryDaysMedian != null ? `${t.recoveryDaysMedian} d` : '—'}
+                  {t.settledPctUnbroken != null
+                    ? `${(100 * t.settledPctUnbroken).toFixed(1)}%`
+                    : '—'}
+                </td>
+                <td className="num">
+                  {t.recoveryDaysMean != null ? `${t.recoveryDaysMean} d` : '—'}
                 </td>
               </tr>
             ))}
@@ -384,9 +400,17 @@ function Methodology({ generatedAt, tickerCount }) {
         </li>
         <li>
           A close is a <strong>permanent floor</strong> for this dataset if no
-          later close was equal to or below it. By definition the most recent
-          close is always trivially permanent — interpret the most recent red
-          dot accordingly.
+          later close was equal to or below it. The "1y+ unbroken" column
+          corrects for the obvious recency bias here: it only counts ATHs
+          from at least a year ago, so a young ticker doesn't trivially
+          score high just because its recent ATHs haven't had time to be
+          undercut.
+        </li>
+        <li>
+          <strong>Zoom</strong>: click and drag horizontally on the chart
+          to focus on a sub-range; a "Reset zoom" button appears in the
+          corner once you're zoomed. The 1Y / 5Y / 10Y / All pills set the
+          default view that zoom operates within.
         </li>
         <li>
           Recovered ATHs are colored by how many trading days passed before

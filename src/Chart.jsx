@@ -107,19 +107,34 @@ export default function Chart({ data, rangeYears }) {
     return m
   }, [athIndices, athRecoveryDays])
 
-  // Filter to the requested time range (cut from the right edge backward).
+  // Zoom state is a [startDate, endDate] tuple set by click-and-drag on
+  // the chart. It's a sub-range *within* whatever the rangeYears pill
+  // selected, so clicking a different range pill clears the zoom.
+  const [zoom, setZoom] = useState(null)
+  useEffect(() => { setZoom(null) }, [rangeYears, data.symbol])
+
+  // Brush state — { startX, endX } while the user is mid-drag.
+  const [brush, setBrush] = useState(null)
+
   const view = useMemo(() => {
     const parsedDates = dates.map(d => new Date(d))
-    if (!rangeYears) {
-      return { startIdx: 0, endIdx: dates.length - 1, parsedDates }
+    const n = parsedDates.length
+    let baseStart = 0
+    let baseEnd = n - 1
+    if (rangeYears) {
+      const cutoff = new Date(parsedDates[baseEnd])
+      cutoff.setFullYear(cutoff.getFullYear() - rangeYears)
+      baseStart = Math.max(0, dateBisector(parsedDates, cutoff))
     }
-    const lastDate = parsedDates[parsedDates.length - 1]
-    const cutoff = new Date(lastDate)
-    cutoff.setFullYear(cutoff.getFullYear() - rangeYears)
-    let startIdx = dateBisector(parsedDates, cutoff)
-    if (startIdx < 0) startIdx = 0
-    return { startIdx, endIdx: parsedDates.length - 1, parsedDates }
-  }, [dates, rangeYears])
+    if (zoom) {
+      const z0 = dateBisector(parsedDates, zoom[0])
+      const z1 = dateBisector(parsedDates, zoom[1])
+      const lo = Math.max(baseStart, Math.min(z0, z1))
+      const hi = Math.min(baseEnd,  Math.max(z0, z1))
+      if (hi > lo + 1) return { startIdx: lo, endIdx: hi, parsedDates }
+    }
+    return { startIdx: baseStart, endIdx: baseEnd, parsedDates }
+  }, [dates, rangeYears, zoom])
 
   const { parsedDates, startIdx, endIdx } = view
   const lastDate = parsedDates[parsedDates.length - 1]
@@ -190,13 +205,17 @@ export default function Chart({ data, rangeYears }) {
 
   const [hover, setHover] = useState(null)
 
-  function onMove(e) {
-    const rect = e.currentTarget.getBoundingClientRect()
-    const px = e.clientX - rect.left
-    if (px < MARGIN.left || px > width - MARGIN.right) {
-      setHover(null)
-      return
-    }
+  function svgXFromEvent(e) {
+    const r = e.currentTarget.getBoundingClientRect()
+    // viewBox width may differ from rendered pixel width; rescale.
+    return ((e.clientX - r.left) / r.width) * width
+  }
+
+  function clampX(x) {
+    return Math.max(MARGIN.left, Math.min(width - MARGIN.right, x))
+  }
+
+  function indexAtX(px) {
     const date = xScale.invert(px)
     let i = dateBisector(parsedDates, date)
     if (i < startIdx) i = startIdx
@@ -206,7 +225,44 @@ export default function Chart({ data, rangeYears }) {
       const curr = parsedDates[i]
       if (Math.abs(date - prev) < Math.abs(date - curr)) i = i - 1
     }
+    return i
+  }
+
+  function onMouseDown(e) {
+    const px = svgXFromEvent(e)
+    if (px < MARGIN.left || px > width - MARGIN.right) return
+    setBrush({ startX: px, endX: px })
+    setHover(null)
+  }
+
+  function onMouseMove(e) {
+    const px = svgXFromEvent(e)
+    if (brush) {
+      setBrush(b => ({ ...b, endX: clampX(px) }))
+      return
+    }
+    if (px < MARGIN.left || px > width - MARGIN.right) {
+      setHover(null)
+      return
+    }
+    const i = indexAtX(px)
     setHover({ i, x: xScale(parsedDates[i]), y: yScale(closes[i]) })
+  }
+
+  function onMouseUp() {
+    if (!brush) return
+    const drag = Math.abs(brush.endX - brush.startX)
+    if (drag > 8) {
+      const lo = Math.min(brush.startX, brush.endX)
+      const hi = Math.max(brush.startX, brush.endX)
+      setZoom([xScale.invert(lo), xScale.invert(hi)])
+    }
+    setBrush(null)
+  }
+
+  function onMouseLeave() {
+    setBrush(null)
+    setHover(null)
   }
 
   let hoverInfo = null
@@ -229,8 +285,11 @@ export default function Chart({ data, rangeYears }) {
         viewBox={`0 0 ${width} ${height}`}
         width="100%"
         height={height}
-        onMouseMove={onMove}
-        onMouseLeave={() => setHover(null)}
+        style={{ cursor: brush ? 'crosshair' : 'default' }}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseLeave}
       >
         {/* Y-axis labels (no gridlines — they were noisy) */}
         {yTicks.map(t => (
@@ -304,14 +363,34 @@ export default function Chart({ data, rangeYears }) {
           </g>
         )}
 
+        {/* Brush selection rectangle during drag */}
+        {brush && Math.abs(brush.endX - brush.startX) > 1 && (
+          <rect
+            x={Math.min(brush.startX, brush.endX)}
+            y={MARGIN.top}
+            width={Math.abs(brush.endX - brush.startX)}
+            height={height - MARGIN.top - MARGIN.bottom}
+            fill="rgba(31, 78, 140, 0.10)"
+            stroke="rgba(31, 78, 140, 0.45)"
+            strokeWidth={1}
+            pointerEvents="none"
+          />
+        )}
+
         <rect
           x={MARGIN.left} y={MARGIN.top}
           width={width - MARGIN.left - MARGIN.right}
           height={height - MARGIN.top - MARGIN.bottom}
           fill="transparent"
           pointerEvents="all"
+          style={{ cursor: 'crosshair' }}
         />
       </svg>
+      {zoom && (
+        <button className="chart-reset" onClick={() => setZoom(null)}>
+          Reset zoom
+        </button>
+      )}
       {hover && hoverInfo && (
         <HoverCard
           date={parsedDates[hover.i]}

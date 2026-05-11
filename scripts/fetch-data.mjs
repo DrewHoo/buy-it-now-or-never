@@ -96,8 +96,31 @@ function analyze(rows) {
     return sorted[idx]
   }
 
+  const recoveryMean = recoveryDays.length
+    ? recoveryDays.reduce((a, b) => a + b, 0) / recoveryDays.length
+    : null
+
   const athCount = athIndices.length
   const permAthCount = athRecoveryDays.filter(d => d == null).length
+
+  // Recency-corrected "still standing" metric. Filter out ATHs that
+  // haven't had enough calendar time to be tested yet — both the
+  // numerator (still-permanent ATHs) and denominator (all ATHs) skip
+  // anything from the last SETTLE_DAYS, so a young ticker doesn't
+  // automatically score high just because its recent ATHs are
+  // trivially-not-yet-undercut.
+  const SETTLE_DAYS = 365
+  const lastTime = new Date(dates[n - 1]).getTime()
+  let settledAthCount = 0
+  let settledPermAthCount = 0
+  for (let k = 0; k < athIndices.length; k++) {
+    const i = athIndices[k]
+    const ageMs = lastTime - new Date(dates[i]).getTime()
+    const ageDays = ageMs / 86400000
+    if (ageDays < SETTLE_DAYS) continue
+    settledAthCount++
+    if (athRecoveryDays[k] == null) settledPermAthCount++
+  }
 
   return {
     dates,
@@ -112,8 +135,10 @@ function analyze(rows) {
       permAthCount,
       pctAthsThatWerePermanent: athCount ? permAthCount / athCount : 0,
       pctDaysThatWerePermanentAth: n ? permAthCount / n : 0,
-      recoveryDaysMedian: percentile(recoveryDays, 0.5),
-      recoveryDaysP25: percentile(recoveryDays, 0.25),
+      settledAthCount,
+      settledPermAthCount,
+      settledPctUnbroken: settledAthCount ? settledPermAthCount / settledAthCount : null,
+      recoveryDaysMean: recoveryMean != null ? Math.round(recoveryMean) : null,
       recoveryDaysP75: percentile(recoveryDays, 0.75),
       recoveryDaysMax: recoveryDays.length ? recoveryDays[recoveryDays.length - 1] : null,
       recoveredAthCount: recoveryDays.length,
@@ -150,7 +175,10 @@ async function processOne(ticker) {
     athCount: analyzed.stats.athCount,
     permAthCount: analyzed.stats.permAthCount,
     pctAthsThatWerePermanent: analyzed.stats.pctAthsThatWerePermanent,
-    recoveryDaysMedian: analyzed.stats.recoveryDaysMedian,
+    settledAthCount: analyzed.stats.settledAthCount,
+    settledPermAthCount: analyzed.stats.settledPermAthCount,
+    settledPctUnbroken: analyzed.stats.settledPctUnbroken,
+    recoveryDaysMean: analyzed.stats.recoveryDaysMean,
   }
 }
 
