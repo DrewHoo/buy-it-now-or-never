@@ -225,19 +225,15 @@ export default function Chart({ data, rangeYears, zoom, onZoomChange }) {
     return i
   }
 
-  function onMouseDown(e) {
-    const px = svgXFromEvent(e)
-    if (px < MARGIN.left || px > width - MARGIN.right) return
-    setBrush({ startX: px, endX: px })
-    setHover(null)
+  // Pointer events unify mouse + touch. We branch on pointerType so a
+  // mouse drag still triggers brush-to-zoom while a finger drag scrubs
+  // the tooltip along the line (no zoom on touch — pinch/zoom gestures
+  // are reserved for the OS).
+  function isTouch(e) {
+    return e.pointerType === 'touch' || e.pointerType === 'pen'
   }
 
-  function onMouseMove(e) {
-    const px = svgXFromEvent(e)
-    if (brush) {
-      setBrush(b => ({ ...b, endX: clampX(px) }))
-      return
-    }
+  function updateHoverAt(px) {
     if (px < MARGIN.left || px > width - MARGIN.right) {
       setHover(null)
       return
@@ -246,20 +242,55 @@ export default function Chart({ data, rangeYears, zoom, onZoomChange }) {
     setHover({ i, x: xScale(parsedDates[i]), y: yScale(closes[i]) })
   }
 
-  function onMouseUp() {
-    if (!brush) return
-    const drag = Math.abs(brush.endX - brush.startX)
-    if (drag > 8) {
-      const lo = Math.min(brush.startX, brush.endX)
-      const hi = Math.max(brush.startX, brush.endX)
-      onZoomChange([xScale.invert(lo), xScale.invert(hi)])
+  function onPointerDown(e) {
+    const px = svgXFromEvent(e)
+    if (px < MARGIN.left || px > width - MARGIN.right) return
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+    if (isTouch(e)) {
+      // Finger-down = start scrubbing for info. No brush on touch.
+      updateHoverAt(px)
+    } else {
+      setBrush({ startX: px, endX: px })
+      setHover(null)
     }
-    setBrush(null)
   }
 
-  function onMouseLeave() {
+  function onPointerMove(e) {
+    const px = svgXFromEvent(e)
+    if (brush) {
+      setBrush(b => ({ ...b, endX: clampX(px) }))
+      return
+    }
+    updateHoverAt(px)
+  }
+
+  function onPointerUp(e) {
+    if (brush) {
+      const drag = Math.abs(brush.endX - brush.startX)
+      if (drag > 8) {
+        const lo = Math.min(brush.startX, brush.endX)
+        const hi = Math.max(brush.startX, brush.endX)
+        onZoomChange([xScale.invert(lo), xScale.invert(hi)])
+      }
+      setBrush(null)
+    }
+    // On touch, clear the tooltip when the finger lifts. On mouse, leave
+    // hover state alone so the value follows the cursor.
+    if (isTouch(e)) setHover(null)
+  }
+
+  function onPointerCancel() {
     setBrush(null)
     setHover(null)
+  }
+
+  function onPointerLeave(e) {
+    // Only clear on real mouse-out — touch's pointerleave fires right
+    // after pointerup, which we've already handled.
+    if (!isTouch(e)) {
+      setBrush(null)
+      setHover(null)
+    }
   }
 
   let hoverInfo = null
@@ -282,11 +313,17 @@ export default function Chart({ data, rangeYears, zoom, onZoomChange }) {
         viewBox={`0 0 ${width} ${height}`}
         width="100%"
         height={height}
-        style={{ cursor: brush ? 'crosshair' : 'default' }}
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
-        onMouseLeave={onMouseLeave}
+        style={{
+          cursor: brush ? 'crosshair' : 'default',
+          // Let vertical scrolls pass through; capture horizontal drags
+          // so scrubbing the chart doesn't fight with page scroll.
+          touchAction: 'pan-y',
+        }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+        onPointerLeave={onPointerLeave}
       >
         {/* Y-axis labels (no gridlines — they were noisy) */}
         {yTicks.map(t => (
