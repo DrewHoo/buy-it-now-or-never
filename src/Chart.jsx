@@ -383,21 +383,22 @@ export default function Chart({ data, rangeYears, zoom, onZoomChange }) {
           strokeWidth={1.5}
         />
 
-        {/* Recovered ATHs — green → yellow → orange by wait length */}
+        {/* All ATHs share the buyable-days gradient. Borders dropped so
+            overlapping dots compound via alpha — clusters darken, which
+            encodes density on top of the per-dot color. Permanents keep
+            a slightly larger radius so red dots still read in clusters. */}
         {athPoints.map(p => (
           <circle
             key={`ath-${p.i}`}
             cx={p.x} cy={p.y} r={3}
-            fill={p.color} stroke="white" strokeWidth={0.75}
+            fill={p.color} opacity={0.7}
           />
         ))}
-
-        {/* Permanent ATHs — solid red, drawn on top with a thicker ring */}
         {permPoints.map(p => (
           <circle
             key={`pf-${p.i}`}
             cx={p.x} cy={p.y} r={4.5}
-            fill={p.color} stroke="white" strokeWidth={1.5}
+            fill={p.color} opacity={0.7}
           />
         ))}
 

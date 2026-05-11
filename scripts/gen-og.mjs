@@ -17,17 +17,18 @@ const TEXT = '#ffffff'
 
 // A stylized price series for the right-side illustration. Drawn by
 // hand so the visual reads as "stocks go up, mostly" without being
-// any real ticker. ATH markers are colored on the same wait-time
-// gradient used in the live chart (green → yellow → orange → red).
+// any real ticker. ATH markers are colored on the same buyable-days
+// gradient used in the live chart (red = 0 buyable days "never seen
+// again", through yellow, to green = 1y+ of opportunity afterward).
 const seriesPath = `M 0 360 L 38 348 L 76 330 L 114 338 L 152 312 L 190 320 L 228 290 L 266 296 L 304 270 L 342 282 L 380 254 L 418 244 L 456 254 L 494 222 L 532 200 L 570 174`
 const athDots = [
-  { x: 76,  y: 330, c: '#22c55e', r: 7 },  // recovered, short wait
+  { x: 76,  y: 330, c: '#22c55e', r: 7 },  // early ATH — undercut many times later → green
   { x: 152, y: 312, c: '#22c55e', r: 7 },
   { x: 228, y: 290, c: '#84cc16', r: 7 },
-  { x: 304, y: 270, c: '#eab308', r: 8 },  // recovered, longer wait
+  { x: 304, y: 270, c: '#eab308', r: 8 },
   { x: 380, y: 254, c: '#f59e0b', r: 8 },
   { x: 418, y: 244, c: '#f97316', r: 8 },
-  { x: 494, y: 222, c: '#dc2626', r: 10 }, // permanent — never seen again
+  { x: 494, y: 222, c: '#dc2626', r: 10 }, // recent ATH — never seen again → red
   { x: 570, y: 174, c: '#dc2626', r: 10 },
 ]
 
@@ -39,9 +40,9 @@ const svg = `
       <stop offset="100%" stop-color="#0a0d12"/>
     </linearGradient>
     <linearGradient id="grad" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%"  stop-color="#22c55e"/>
+      <stop offset="0%"  stop-color="#dc2626"/>
       <stop offset="50%" stop-color="#eab308"/>
-      <stop offset="100%" stop-color="#dc2626"/>
+      <stop offset="100%" stop-color="#22c55e"/>
     </linearGradient>
   </defs>
   <rect width="${W}" height="${H}" fill="url(#bg)"/>
@@ -94,14 +95,11 @@ const svg = `
 
   <!-- Legend below chart -->
   <g transform="translate(580, 520)">
-    <text x="0" y="0" font-family="DM Sans, Helvetica, Arial, sans-serif"
-      font-size="13" fill="${MUTED}">ATH wait gradient</text>
-    <rect x="160" y="-10" width="200" height="10" rx="2" fill="url(#grad)"/>
-    <text x="160" y="20" font-family="DM Mono, monospace" font-size="10" fill="${MUTED}">days</text>
-    <text x="320" y="20" font-family="DM Mono, monospace" font-size="10" fill="${MUTED}" text-anchor="end">1y+</text>
-    <circle cx="390" cy="-5" r="6" fill="#dc2626" stroke="white" stroke-width="1.5"/>
-    <text x="404" y="0" font-family="DM Sans, Helvetica, Arial, sans-serif"
-      font-size="13" fill="${MUTED}">never seen again</text>
+    <rect x="0" y="-10" width="240" height="10" rx="2" fill="url(#grad)"/>
+    <text x="0" y="14" font-family="DM Mono, monospace" font-size="10" fill="${MUTED}">never seen again</text>
+    <text x="240" y="14" font-family="DM Mono, monospace" font-size="10" fill="${MUTED}" text-anchor="end">1y+ buyable</text>
+    <text x="0" y="38" font-family="DM Sans, Helvetica, Arial, sans-serif"
+      font-size="13" fill="${MUTED}">ATH — days afterward at this price or lower</text>
   </g>
 
   <!-- Footer URL + accent bar -->
