@@ -391,9 +391,9 @@ header h1 {
 .legend-gradient--recovery {
   background: linear-gradient(
     to right,
-    rgb(34, 197, 94),
+    rgb(220, 38, 38),
     rgb(234, 179, 8),
-    rgb(249, 115, 22)
+    rgb(34, 197, 94)
   );
 }
 

@@ -312,17 +312,11 @@ function Legend() {
       <span className="legend-item legend-item--gradient">
         <span className="legend-gradient legend-gradient--recovery" />
         <span className="legend-gradient-labels">
-          <span>recovered in days</span>
-          <span>1 year+</span>
+          <span>never seen again</span>
+          <span>1y+ of opportunity</span>
         </span>
         <span className="legend-gradient-caption">
-          ATH — how long you waited to buy back in
-        </span>
-      </span>
-      <span className="legend-item">
-        <span className="legend-dot legend-dot--perm" />
-        <span>
-          ATH <strong>never seen again</strong>
+          ATH — total days afterward you could buy at this price or lower
         </span>
       </span>
     </section>
@@ -535,10 +529,13 @@ function Methodology({ generatedAt, tickerCount }) {
           default view that zoom operates within.
         </li>
         <li>
-          Recovered ATHs are colored by how many trading days passed before
-          the price was matched or undercut: <em>green</em> for short waits,
-          <em> orange</em> for waits approaching a year, <em>red</em> only
-          for ATHs that haven't been undercut at all (yet).
+          Every ATH dot is colored on a single red → yellow → green scale
+          driven by the total trading days the close stayed at or below
+          the ATH afterward: <em>red</em> when that count is zero (the
+          ATH was never seen again), <em>yellow</em> at about a month of
+          opportunity, <em>green</em> at a year or more. Log-scaled so a
+          one-week window looks meaningfully different from a one-year
+          window.
         </li>
         <li>
           We only check <em>closes</em>, not intraday lows. A stock can dip

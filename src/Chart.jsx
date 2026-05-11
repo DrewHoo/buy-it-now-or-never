@@ -12,30 +12,26 @@ const MARGIN = { top: 18, right: 18, bottom: 32, left: 56 }
 
 const dateBisector = bisector(d => d).left
 
-// Recovered ATHs get a green → yellow → orange gradient by how long the
-// buyer had to wait. Permanent ATHs ("and counting") are solid red — a
-// distinct visual category, not the saturating end of the same scale.
-//
-// We scale by log1p(wait) so that the meaningful range of wait times
-// (a day to a few years) spreads cleanly across the gradient: a 1-week
-// wait is barely tinted, a 1-month wait is yellow-green, a 1-year wait
-// reads as orange, multi-year waits saturate.
-const PERMANENT_COLOR = 'rgb(220, 38, 38)' // red-600
+// All ATHs share a single color gradient driven by athBuyableDays —
+// the total trading days the close stayed at or below the ATH afterward.
+//   Red    = 0 buyable days (the ATH was never seen again)
+//   Yellow = ~1 month of buyable opportunity
+//   Green  = ~4 years of buyable opportunity
+// Log1p-scaled so the meaningful range (single days to thousands of
+// days) spreads cleanly. Permanent ATHs fall at the red end naturally.
 function lerp(a, b, t) { return Math.round(a + (b - a) * t) }
 function rgb(c) { return `rgb(${c[0]}, ${c[1]}, ${c[2]})` }
-const GREEN  = [34, 197, 94]   // green-500
+const RED    = [220, 38, 38]   // red-600
 const YELLOW = [234, 179, 8]   // yellow-500
-const ORANGE = [249, 115, 22]  // orange-500
-function athColor(waitTradingDays) {
-  if (waitTradingDays == null) return PERMANENT_COLOR
-  // Normalize log1p(wait) onto [0, 1] over [0, ~1000 trading days (~4 years)].
-  const t = Math.min(1, Math.log1p(waitTradingDays) / Math.log1p(1000))
+const GREEN  = [34, 197, 94]   // green-500
+function athColor(buyableDays) {
+  const t = Math.min(1, Math.log1p(buyableDays || 0) / Math.log1p(1000))
   if (t < 0.5) {
     const u = t * 2
-    return rgb([lerp(GREEN[0], YELLOW[0], u), lerp(GREEN[1], YELLOW[1], u), lerp(GREEN[2], YELLOW[2], u)])
+    return rgb([lerp(RED[0], YELLOW[0], u), lerp(RED[1], YELLOW[1], u), lerp(RED[2], YELLOW[2], u)])
   }
   const u = (t - 0.5) * 2
-  return rgb([lerp(YELLOW[0], ORANGE[0], u), lerp(YELLOW[1], ORANGE[1], u), lerp(YELLOW[2], ORANGE[2], u)])
+  return rgb([lerp(YELLOW[0], GREEN[0], u), lerp(YELLOW[1], GREEN[1], u), lerp(YELLOW[2], GREEN[2], u)])
 }
 
 // Log-scale tick selection that adapts to the range:
@@ -178,9 +174,9 @@ export default function Chart({ data, rangeYears, zoom, onZoomChange }) {
     return gen(pts)
   }, [parsedDates, closes, startIdx, endIdx, xScale, yScale])
 
-  // Every ATH gets a colored marker. Recovered ATHs are colored by wait
-  // length; permanent ATHs are solid red. We split into two arrays so
-  // the permanent ones can render on top with a larger radius.
+  // Every ATH gets a single colored marker on the buyable-days gradient.
+  // We still split into "perm" and "recovered" for rendering order —
+  // permanent (red) markers draw on top so they pop in dense clusters.
   const { athPoints, permPoints } = useMemo(() => {
     const ath = []
     const perm = []
@@ -188,18 +184,18 @@ export default function Chart({ data, rangeYears, zoom, onZoomChange }) {
       const i = athIndices[k]
       if (i < startIdx || i > endIdx) continue
       const wait = athRecoveryDays[k]
+      const buyable = athBuyableDays ? athBuyableDays[k] : null
       const point = {
         i,
         x: xScale(parsedDates[i]),
         y: yScale(closes[i]),
-        color: athColor(wait),
-        wait,
+        color: athColor(buyable),
       }
       if (wait == null) perm.push(point)
       else ath.push(point)
     }
     return { athPoints: ath, permPoints: perm }
-  }, [athIndices, athRecoveryDays, startIdx, endIdx, xScale, yScale, parsedDates, closes])
+  }, [athIndices, athRecoveryDays, athBuyableDays, startIdx, endIdx, xScale, yScale, parsedDates, closes])
 
   const xTicks = useMemo(() => {
     const ticks = xScale.ticks(width < 600 ? 4 : 6)
@@ -320,7 +316,7 @@ export default function Chart({ data, rangeYears, zoom, onZoomChange }) {
           Math.floor((lastDate - parsedDates[hover.i]) / 86400000),
         )
       } else {
-        color = athColor(wait)
+        color = athColor(buyable)
       }
     }
     hoverInfo = { isAth, wait, daysSince, color, buyable }
