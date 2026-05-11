@@ -385,12 +385,12 @@ function Comparison({ tickers, selected, onSelect }) {
     return arr
   }, [filtered, sort])
 
-  function header(label, key, align = 'left') {
+  function header(label, key, align = 'left', extraClass = '') {
     const active = sort.key === key
     const arrow = active ? (sort.dir === 'desc' ? ' ↓' : ' ↑') : ''
     return (
       <th
-        className={`th-sortable th-${align}${active ? ' is-active' : ''}`}
+        className={`th-sortable th-${align}${active ? ' is-active' : ''}${extraClass ? ' ' + extraClass : ''}`}
         onClick={() =>
           setSort(s =>
             s.key === key
@@ -402,6 +402,13 @@ function Comparison({ tickers, selected, onSelect }) {
         {label}{arrow}
       </th>
     )
+  }
+
+  function formatSince(iso) {
+    const d = new Date(`${iso}T00:00:00Z`)
+    return d.toLocaleDateString('en-US', {
+      year: 'numeric', month: 'short', timeZone: 'UTC',
+    })
   }
 
   return (
@@ -431,8 +438,8 @@ function Comparison({ tickers, selected, onSelect }) {
           <thead>
             <tr>
               {header('Ticker', 'symbol')}
-              {header('Name', 'name')}
-              {header('History', 'firstDate')}
+              {header('Name', 'name', 'left', 'col-hide-mobile')}
+              {header('Since', 'firstDate', 'left', 'col-hide-mobile')}
               {header('ATH closes', 'athCount', 'right')}
               {header('Never seen again', 'permAthCount', 'right')}
               <th
@@ -450,6 +457,19 @@ function Comparison({ tickers, selected, onSelect }) {
               </th>
               {header('Off ATH', 'pctOffAth', 'right')}
               {header('Mean wait', 'recoveryDaysMean', 'right')}
+              <th
+                className={`th-sortable th-right${sort.key === 'buyableDaysMedian' ? ' is-active' : ''}`}
+                title="Median trading days afterward you could buy at or below the ATH (across all ATHs for this ticker). High = typical ATH had a long buy-back window; low = ATHs were either fleeting or permanent."
+                onClick={() =>
+                  setSort(s =>
+                    s.key === 'buyableDaysMedian'
+                      ? { key: 'buyableDaysMedian', dir: s.dir === 'desc' ? 'asc' : 'desc' }
+                      : { key: 'buyableDaysMedian', dir: 'desc' },
+                  )
+                }
+              >
+                Median window{sort.key === 'buyableDaysMedian' ? (sort.dir === 'desc' ? ' ↓' : ' ↑') : ''}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -460,10 +480,8 @@ function Comparison({ tickers, selected, onSelect }) {
                 onClick={() => onSelect(t.symbol)}
               >
                 <td><strong>{t.symbol}</strong></td>
-                <td className="muted name-cell">{t.name}</td>
-                <td className="muted">
-                  {t.firstDate.slice(0, 4)}–{t.lastDate.slice(0, 4)}
-                </td>
+                <td className="muted name-cell col-hide-mobile">{t.name}</td>
+                <td className="muted col-hide-mobile">{formatSince(t.firstDate)}</td>
                 <td className="num">{t.athCount.toLocaleString()}</td>
                 <td className="num">
                   <div className="bar-cell">
@@ -492,6 +510,9 @@ function Comparison({ tickers, selected, onSelect }) {
                 </td>
                 <td className="num">
                   {t.recoveryDaysMean != null ? `${t.recoveryDaysMean} d` : '—'}
+                </td>
+                <td className="num">
+                  {t.buyableDaysMedian != null ? `${t.buyableDaysMedian} d` : '—'}
                 </td>
               </tr>
             ))}

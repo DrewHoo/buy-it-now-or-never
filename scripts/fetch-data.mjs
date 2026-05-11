@@ -104,6 +104,12 @@ function analyze(rows) {
     .filter(d => d != null)
     .sort((a, b) => a - b)
 
+  // Median of buyable days across all ATHs (including 0s for permanents).
+  // Tells you the "typical opportunity window" — high values mean the
+  // stock spent a lot of time at-or-below its ATHs after setting them;
+  // low values mean ATHs were either fleeting or permanent.
+  const buyableSorted = athBuyableDays.slice().sort((a, b) => a - b)
+
   const percentile = (sorted, p) => {
     if (sorted.length === 0) return null
     const idx = Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * p))
@@ -165,6 +171,7 @@ function analyze(rows) {
       pctOffAth,
       recoveryDaysMean: recoveryMean != null ? Math.round(recoveryMean) : null,
       recoveryDaysP75: percentile(recoveryDays, 0.75),
+      buyableDaysMedian: percentile(buyableSorted, 0.5),
       recoveryDaysMax: recoveryDays.length ? recoveryDays[recoveryDays.length - 1] : null,
       recoveredAthCount: recoveryDays.length,
     },
@@ -205,6 +212,7 @@ async function processOne(ticker) {
     settledPctUnbroken: analyzed.stats.settledPctUnbroken,
     pctOffAth: analyzed.stats.pctOffAth,
     recoveryDaysMean: analyzed.stats.recoveryDaysMean,
+    buyableDaysMedian: analyzed.stats.buyableDaysMedian,
   }
 }
 

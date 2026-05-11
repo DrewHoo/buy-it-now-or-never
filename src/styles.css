@@ -592,4 +592,7 @@ header h1 {
   .stat-value { font-size: 20px; }
   .legend-gradient,
   .legend-gradient-labels { width: 140px; }
+  /* Drop the wordy columns on small screens so the numeric ones fit. */
+  .col-hide-mobile { display: none; }
+  .comparison th, .comparison td { padding: 5px 6px; font-size: 12px; }
 }
