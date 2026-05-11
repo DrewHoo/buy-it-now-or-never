@@ -300,7 +300,7 @@ header h1 {
   padding: 8px 10px;
   border-radius: 6px;
   font-size: 12px;
-  min-width: 180px;
+  width: 170px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
 }
 

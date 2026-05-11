@@ -72,6 +72,15 @@ function niceLogTicks(lo, hi) {
   return out.sort((a, b) => a - b)
 }
 
+// Pick black or white text for legibility on top of a given rgb(...) string.
+// 0.6 is empirically the right luminance threshold for our green→orange band.
+function textColorOn(rgbStr) {
+  const m = /(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(rgbStr || '')
+  if (!m) return 'white'
+  const luma = (0.2126 * +m[1] + 0.7152 * +m[2] + 0.0722 * +m[3]) / 255
+  return luma > 0.6 ? '#0c0f14' : 'white'
+}
+
 function formatTickValue(v) {
   if (v >= 100) return numberFormat('$,.0f')(v)
   if (v >= 10) return numberFormat('$,.0~f')(v)
@@ -298,13 +307,18 @@ export default function Chart({ data, rangeYears, zoom, onZoomChange }) {
     const wait = athInfo.get(hover.i)
     const isAth = athInfo.has(hover.i)
     let daysSince = null
-    if (isAth && wait == null) {
-      daysSince = Math.max(
-        0,
-        Math.floor((lastDate - parsedDates[hover.i]) / 86400000),
-      )
+    let color = null
+    if (isAth) {
+      if (wait == null) {
+        daysSince = Math.max(
+          0,
+          Math.floor((lastDate - parsedDates[hover.i]) / 86400000),
+        )
+      } else {
+        color = athColor(wait)
+      }
     }
-    hoverInfo = { isAth, wait, daysSince }
+    hoverInfo = { isAth, wait, daysSince, color }
   }
 
   return (
@@ -454,10 +468,13 @@ function HoverCard({ date, close, info, left, top }) {
         </div>
       )}
       {info.isAth && info.wait != null && (
-        <div className="hover-tag hover-tag--ath">
+        <div
+          className="hover-tag hover-tag--ath"
+          style={info.color ? { background: info.color, color: textColorOn(info.color) } : undefined}
+        >
           ATH — recovered
           <div className="hover-sub">
-            could buy at this price again {info.wait} trading day{info.wait === 1 ? '' : 's'} later
+            {info.wait} day{info.wait === 1 ? '' : 's'} until seen again
           </div>
         </div>
       )}
