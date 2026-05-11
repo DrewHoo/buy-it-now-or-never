@@ -77,37 +77,28 @@ function analyze(rows) {
     if (closes[i] < suffixMin) suffixMin = closes[i]
   }
 
-  // Recovery time: for every ATH that is NOT a permanent floor, how many
-  // trading days until the next close <= it?
-  const recoveryDays = []
-  for (let i = 0; i < n; i++) {
-    if (!isAth[i] || isPermanentFloor[i]) continue
-    for (let j = i + 1; j < n; j++) {
-      if (closes[j] <= closes[i]) {
-        recoveryDays.push(j - i)
-        break
-      }
-    }
-  }
-  recoveryDays.sort((a, b) => a - b)
-
+  // For every ATH, compute how many trading days until the next close <= it.
+  // null means "permanent" (the ATH was never undercut later).
   const athIndices = []
-  const permFloorAthIndices = []
-  // Permanent floors that are NOT ATHs are interesting too — sometimes a stock
-  // pulls back from an ATH, sets a low, and never undercuts that low again.
-  const permFloorNonAthIndices = []
+  const athRecoveryDays = []
   for (let i = 0; i < n; i++) {
-    if (isAth[i]) {
-      athIndices.push(i)
-      if (isPermanentFloor[i]) permFloorAthIndices.push(i)
-    } else if (isPermanentFloor[i]) {
-      permFloorNonAthIndices.push(i)
+    if (!isAth[i]) continue
+    athIndices.push(i)
+    if (isPermanentFloor[i]) {
+      athRecoveryDays.push(null)
+    } else {
+      let waited = null
+      for (let j = i + 1; j < n; j++) {
+        if (closes[j] <= closes[i]) { waited = j - i; break }
+      }
+      athRecoveryDays.push(waited)
     }
   }
+  const recoveryDays = athRecoveryDays.filter(d => d != null).sort((a, b) => a - b)
 
   const totalDays = n
   const athCount = athIndices.length
-  const permAthCount = permFloorAthIndices.length
+  const permAthCount = athRecoveryDays.filter(d => d == null).length
 
   const percentile = (sorted, p) => {
     if (sorted.length === 0) return null
@@ -119,8 +110,7 @@ function analyze(rows) {
     dates,
     closes,
     athIndices,
-    permFloorAthIndices,
-    permFloorNonAthIndices,
+    athRecoveryDays,
     stats: {
       firstDate: dates[0],
       lastDate: dates[n - 1],

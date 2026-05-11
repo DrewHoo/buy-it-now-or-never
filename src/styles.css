@@ -185,9 +185,9 @@ header h1 {
 
 .hover-tag {
   font-size: 11px;
-  padding: 2px 6px;
+  padding: 4px 6px;
   border-radius: 4px;
-  display: inline-block;
+  display: block;
 }
 
 .hover-tag--perm {
@@ -197,8 +197,14 @@ header h1 {
 }
 
 .hover-tag--ath {
-  background: #44485560;
+  background: #44485590;
   color: white;
+}
+
+.hover-sub {
+  font-weight: 400;
+  opacity: 0.9;
+  margin-top: 2px;
 }
 
 .legend {
@@ -235,10 +241,35 @@ header h1 {
   background: var(--ath);
 }
 
-.legend-dot--perm {
-  background: var(--perm);
-  width: 12px;
-  height: 12px;
+.legend-item--gradient {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin-left: 4px;
+}
+
+.legend-gradient {
+  display: block;
+  width: 160px;
+  height: 8px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    rgb(251, 191, 36),
+    rgb(220, 38, 38)
+  );
+}
+
+.legend-gradient-labels {
+  display: flex;
+  justify-content: space-between;
+  width: 160px;
+  font-size: 10px;
+  color: var(--fg-muted);
+}
+
+.legend-gradient-caption {
+  font-size: 12px;
 }
 
 .stats {

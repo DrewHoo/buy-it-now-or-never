@@ -102,12 +102,18 @@ export default function App() {
           <span className="legend-line" /> Adjusted close
         </span>
         <span className="legend-item">
-          <span className="legend-dot legend-dot--ath" /> ATH close that{' '}
+          <span className="legend-dot legend-dot--ath" /> ATH that{' '}
           <em>did</em> come back
         </span>
-        <span className="legend-item">
-          <span className="legend-dot legend-dot--perm" /> ATH close that{' '}
-          <strong>was never seen again</strong>
+        <span className="legend-item legend-item--gradient">
+          <span className="legend-gradient" />
+          <span className="legend-gradient-labels">
+            <span>just happened</span>
+            <span>1+ year unbroken</span>
+          </span>
+          <span className="legend-gradient-caption">
+            ATH never seen again
+          </span>
         </span>
       </section>
 
