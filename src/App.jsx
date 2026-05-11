@@ -41,13 +41,14 @@ export default function App() {
       .catch(err => setError(err.message))
   }, [selected, baseUrl])
 
+  // Hook calls must precede any early returns (React rules of hooks).
+  const symbolSet = useMemo(
+    () => new Set((index?.tickers || []).map(t => t.symbol)),
+    [index],
+  )
+
   if (error) return <main className="error">Couldn't load data: {error}</main>
   if (!index || !data) return <main className="loading">Loading…</main>
-
-  const symbolSet = useMemo(
-    () => new Set(index.tickers.map(t => t.symbol)),
-    [index.tickers],
-  )
 
   return (
     <main>

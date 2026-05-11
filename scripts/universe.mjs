@@ -14,7 +14,8 @@
 
 const STOCKS_NDX_OR_SP100 = [
   // Mega caps + Mag 7
-  'AAPL', 'MSFT', 'GOOGL', 'GOOG', 'AMZN', 'META', 'NVDA', 'TSLA',
+  'AAPL', 'MSFT', 'GOOGL', 'GOOG', 'AMZN', 'META', 'NVDA',
+  // TSLA intentionally omitted.
   // Other large-cap tech / software / internet
   'ORCL', 'ADBE', 'CRM', 'AVGO', 'AMD', 'QCOM', 'INTC', 'IBM', 'CSCO',
   'ACN', 'NOW', 'INTU', 'PANW', 'CRWD', 'ZS', 'DDOG', 'MDB', 'SNPS',

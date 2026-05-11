@@ -38,24 +38,46 @@ function athColor(waitTradingDays) {
   return rgb([lerp(YELLOW[0], ORANGE[0], u), lerp(YELLOW[1], ORANGE[1], u), lerp(YELLOW[2], ORANGE[2], u)])
 }
 
-// "Nice" log-scale ticks: pick powers of 10 inside [lo, hi], and if the
-// resulting count is small (≤ 2) fill in 3× multiples for breathing room.
+// Log-scale tick selection that adapts to the range:
+//   - < ~0.7 orders of magnitude (range like $35–$55): pick clean 1-2-5
+//     stepped values; on a narrow log range the axis effectively reads
+//     linear so this gives nicely spaced labels.
+//   - up to 2.5 orders: use 1/2/5 multipliers per power of 10
+//   - up to 4 orders: use 1/3 multipliers
+//   - very wide: just powers of 10
 function niceLogTicks(lo, hi) {
+  const orders = Math.log10(hi / lo)
+  if (orders < 0.7) {
+    const span = hi - lo
+    const rawStep = span / 5
+    const k = Math.floor(Math.log10(rawStep))
+    const base = Math.pow(10, k)
+    const m = rawStep / base
+    const step = (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * base
+    const start = Math.ceil(lo / step) * step
+    const out = []
+    for (let v = start; v <= hi + step * 1e-9; v += step) out.push(v)
+    return out
+  }
+  const multipliers = orders < 2.5 ? [1, 2, 5] : orders < 4 ? [1, 3] : [1]
   const loE = Math.floor(Math.log10(lo))
   const hiE = Math.ceil(Math.log10(hi))
-  const powers = []
-  for (let e = loE; e <= hiE; e++) powers.push(Math.pow(10, e))
-  const inRange = powers.filter(v => v >= lo && v <= hi)
-  if (inRange.length >= 3) return inRange
-  // Add 3× of each power-of-10 step (≈ midpoint on a log axis)
   const out = []
   for (let e = loE; e <= hiE; e++) {
-    const a = Math.pow(10, e)
-    const b = 3 * a
-    if (a >= lo && a <= hi) out.push(a)
-    if (b >= lo && b <= hi) out.push(b)
+    for (const m of multipliers) {
+      const v = m * Math.pow(10, e)
+      if (v >= lo && v <= hi) out.push(v)
+    }
   }
   return out.sort((a, b) => a - b)
+}
+
+function formatTickValue(v) {
+  if (v >= 100) return numberFormat('$,.0f')(v)
+  if (v >= 10) return numberFormat('$,.0~f')(v)
+  if (v >= 1) return numberFormat('$,.2~f')(v)
+  if (v >= 0.1) return numberFormat('$.2f')(v)
+  return numberFormat('$.4f')(v)
 }
 
 export default function Chart({ data, rangeYears }) {
@@ -163,11 +185,7 @@ export default function Chart({ data, rangeYears }) {
 
   const yTicks = useMemo(() => {
     const [lo, hi] = yScale.domain()
-    const values = niceLogTicks(lo, hi)
-    return values.map(v => ({
-      v,
-      label: numberFormat(v < 10 ? '$.2f' : v < 100 ? '$,.1f' : '$,.0f')(v),
-    }))
+    return niceLogTicks(lo, hi).map(v => ({ v, label: formatTickValue(v) }))
   }, [yScale])
 
   const [hover, setHover] = useState(null)
