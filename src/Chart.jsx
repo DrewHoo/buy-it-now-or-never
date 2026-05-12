@@ -1,11 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { scaleLog, scaleTime } from 'd3-scale'
+import { scaleLog, scaleUtc } from 'd3-scale'
 import { line as d3line } from 'd3-shape'
 import { bisector } from 'd3-array'
-import { timeFormat } from 'd3-time-format'
+import { utcFormat } from 'd3-time-format'
 import { format as numberFormat } from 'd3-format'
 
-const fmtDate = timeFormat('%b %e, %Y')
+// The per-ticker JSON stores dates as bare 'YYYY-MM-DD' strings, which
+// JavaScript's Date constructor parses as UTC midnight. Formatting and
+// axis ticks must also read those Date objects in UTC — otherwise
+// viewers west of GMT see every trading day shifted back one day on
+// the axis and in hover labels.
+const fmtDate = utcFormat('%b %e, %Y')
 const fmtMoney = numberFormat('$,.2f')
 
 const MARGIN = { top: 18, right: 18, bottom: 32, left: 56 }
@@ -145,7 +150,7 @@ export default function Chart({ data, rangeYears, zoom, onZoomChange }) {
   const lastDate = parsedDates[parsedDates.length - 1]
 
   const xScale = useMemo(() => {
-    return scaleTime()
+    return scaleUtc()
       .domain([parsedDates[startIdx], parsedDates[endIdx]])
       .range([MARGIN.left, width - MARGIN.right])
   }, [parsedDates, startIdx, endIdx, width])
