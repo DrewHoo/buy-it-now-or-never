@@ -27,7 +27,7 @@ so the data stays current without manual intervention.
 ## Running locally
 
 ```bash
-npm install
-npm run fetch     # refresh price data (network call to Yahoo)
-npm run dev
+pnpm install
+pnpm run fetch     # refresh price data (network call to Yahoo)
+pnpm run dev
 ```
